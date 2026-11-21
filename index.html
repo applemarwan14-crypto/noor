@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#253f31" id="themeColor">
+  <title>NOOR — Smart Display</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /*
+      نسخة متوافقة مع متصفحات التلفزيون (LG webOS / Samsung Tizen) القديمة:
+      كل قيمة clamp() أو min() مسبوقة بقيمة احتياطية، والألوان بصيغة rgba،
+      والتخطيط بـ flex مع هوامش بدل gap و grid.
+    */
+    :root {
+      --cream: #f4ead8;
+      --gold: #d9b677;
+      --muted: #d5c9b5;
+      --line: rgba(244, 234, 216, .19);
+      --clock-scale: 1;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: #f4ead8;
+      color: var(--cream);
+      font: 400 1rem/1.5 "IBM Plex Sans Arabic", Tahoma, Arial, sans-serif;
+      background-color: #1f3429;
+      background-image: radial-gradient(ellipse at 85% 15%, #38513a, rgba(56, 81, 58, 0) 56%),
+        linear-gradient(132deg, #182a22, #253f31 46%, #382d23);
+      background-attachment: fixed;
+    }
+    body[data-theme="teal"] { background-image: linear-gradient(138deg, #192921, #37452d 65%, #26291e); }
+    body[data-theme="violet"] { background-image: linear-gradient(138deg, #202a21, #3f3729 65%, #33251d); }
+    body[data-kiosk="true"] { overflow: hidden; }
+    body.idle, body.idle * { cursor: none !important; }
+    h1, h2, p, blockquote { margin: 0; }
+    button, input, select { font: inherit; color: inherit; }
+    button, summary { cursor: pointer; }
+    :focus { outline: 3px solid #d9b677; outline-offset: 3px; }
+    option { background: #172a21; color: #f4ead8; }
+
+    .shell {
+      width: 100%;
+      max-width: 1500px;
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 32px 3vw;
+      padding: clamp(16px, 3vw, 48px);
+      display: flex;
+      flex-direction: column;
+      transition: transform 2s ease, opacity 1.5s ease;
+    }
+    .shell > * + * { margin-top: 2vh; }
+
+    .topbar, .tools, .brand, .location, .card-heading, .weather-main,
+    .prayer-main, .footer, .dialog-head, .setting-line {
+      display: flex;
+      align-items: center;
+    }
+    .topbar, .card-heading, .weather-main, .prayer-main, .footer,
+    .dialog-head, .setting-line { justify-content: space-between; }
+    .topbar > * + *, .tools > * + *, .location > * + *, .card-heading > * + *,
+    .weather-main > * + *, .prayer-main > * + *, .dialog-head > * + *,
+    .setting-line > * + * { margin-right: 12px; }
+    .topbar { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+    .brand { direction: ltr; flex: none; }
+    .brand > * + * { margin-left: 12px; }
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(217, 182, 119, .52);
+      border-radius: 13px;
+      background: rgba(217, 182, 119, .08);
+      color: #d9b677;
+    }
+    .brand-mark svg { width: 22px; height: 22px; fill: currentColor; }
+    .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+    .brand strong { color: #d9b677; letter-spacing: .17em; font-size: 1.33rem; }
+    .brand small { color: var(--muted); font-size: .75rem; margin-top: 4px; }
+    .tools, .location { min-width: 0; }
+    .location { color: var(--muted); font-weight: 500; }
+    .location span, .card-heading p { word-break: break-word; overflow-wrap: anywhere; }
+    .icon {
+      width: 20px;
+      height: 20px;
+      flex: none;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(244, 234, 216, .04);
+      padding: 5px 10px;
+    }
+    .button:hover, .button:focus { background: rgba(217, 182, 119, .18); }
+    .icon-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 43px;
+      height: 43px;
+      padding: 0;
+      flex: none;
+    }
+
+    .hero {
+      position: relative;
+      z-index: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      flex: 1 1 auto;
+      min-height: 345px;
+      padding: 4vw;
+      padding: clamp(22px, 4vw, 60px);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: linear-gradient(113deg, rgba(17, 30, 24, .5), rgba(37, 63, 49, .25) 66%, rgba(177, 154, 101, .1));
+      box-shadow: 0 14px 42px rgba(17, 26, 21, .15);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      left: -13%;
+      top: 50%;
+      width: 62vw;
+      height: 62vw;
+      max-width: 800px;
+      max-height: 800px;
+      -webkit-transform: translateY(-50%);
+      transform: translateY(-50%);
+      border-radius: 50%;
+      border: 1px solid rgba(217, 182, 119, .15);
+      background: radial-gradient(circle, rgba(217, 182, 119, .08), rgba(217, 182, 119, 0) 70%);
+      box-shadow: 0 0 0 34px rgba(217, 182, 119, .06), 0 0 0 35px rgba(217, 182, 119, .125),
+        0 0 0 69px rgba(217, 182, 119, .035), 0 0 0 70px rgba(217, 182, 119, .086);
+    }
+    h1 { font-size: 5.3vw; font-size: clamp(2.5rem, 5.3vw, 5.5rem); line-height: 1.12; font-weight: 700; }
+    .dates {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 5px;
+      font-size: 2.7vw;
+      font-size: clamp(1.25rem, 2.7vw, 2.55rem);
+      font-weight: 500;
+    }
+    #hijriDate {
+      color: #d9b677;
+      margin-right: .75em;
+      padding-right: .75em;
+      border-right: 1px solid var(--line);
+    }
+    .clock-stage {
+      margin-top: 22px;
+      margin-top: clamp(13px, 2.6vh, 34px);
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+    .time-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: baseline;
+      direction: ltr;
+      white-space: nowrap;
+      font-size: calc(10.5vw * var(--clock-scale));
+      font-size: calc(clamp(3rem, 13.65vw, 12.7rem) * var(--clock-scale));
+      line-height: .89;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -.05em;
+    }
+    #clockSeconds { font-size: .38em; color: #d9b677; letter-spacing: 0; margin-left: .08em; }
+    #clockPeriod { font-size: .18em; color: var(--muted); letter-spacing: 0; margin-left: .3em; }
+    #greeting {
+      margin-top: 16px;
+      margin-top: clamp(9px, 2vh, 22px);
+      color: var(--muted);
+      font-size: 1.65vw;
+      font-size: clamp(1rem, 1.65vw, 1.45rem);
+    }
+
+    .cards { display: flex; align-items: stretch; }
+    .card {
+      min-width: 0;
+      padding: 1.7vw;
+      padding: clamp(14px, 1.7vw, 26px);
+      border: 1px solid var(--line);
+      border-radius: 21px;
+    }
+    .card + .card { margin-right: 1.3vw; margin-right: clamp(10px, 1.3vw, 20px); }
+    .weather { flex: 1.2 1 0%; }
+    .prayer { flex: 1.05 1 0%; }
+    .daily { flex: .85 1 0%; }
+    .card h2 { font-size: 1rem; font-weight: 700; }
+    .weather {
+      color: #34291f;
+      background: linear-gradient(155deg, #f4ead8, #d9bd9c);
+      --muted: #594b3c;
+      --line: rgba(52, 41, 31, .2);
+    }
+    .weather-main { margin: 8px 0; }
+    .weather-value { display: flex; align-items: baseline; }
+    .weather-value > * + * { margin-right: 7px; }
+    #temperature { font-size: 4.2vw; font-size: clamp(2.4rem, 4.2vw, 4.9rem); font-weight: 700; line-height: 1; }
+    #weatherIcon { display: block; width: 46px; height: 46px; flex: none; color: #5d5937; }
+    #weatherIcon svg { width: 100%; height: 100%; }
+    .weather-stats { display: flex; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); }
+    .weather-stats > * { margin-left: 14px; }
+    .weather-stats, .card-heading p, .note, #nextAt, .footer { color: var(--muted); font-size: .875rem; }
+    .note { margin-top: 6px; }
+    .prayer { background: rgba(244, 234, 216, .04); }
+    .prayer h2, .daily h2 { color: #d9b677; }
+    .prayer-main { margin: 7px 0; }
+    #nextName { font-size: 2.4vw; font-size: clamp(1.2rem, 2.4vw, 2rem); font-weight: 700; }
+    .count-block { text-align: center; flex: none; }
+    .count-block small { display: block; color: var(--muted); }
+    #countdown {
+      color: #d9b677;
+      font-size: 1.7vw;
+      font-size: clamp(.98rem, 1.7vw, 1.5rem);
+      font-variant-numeric: tabular-nums;
+    }
+    .track { height: 3px; background: var(--line); border-radius: 5px; overflow: hidden; margin: 7px 0; }
+    #progressFill { height: 100%; width: 0; background: #d9b677; }
+    details { margin-top: 9px; }
+    summary { display: inline-block; font-size: .88rem; }
+    summary::before { content: "▾ "; }
+    details:not([open]) summary::before { content: "◂ "; }
+    summary::-webkit-details-marker { display: none; }
+    .prayer-grid { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 9px; }
+    .prayer-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      width: 47%;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: .84rem;
+    }
+    .prayer-row.next { color: #d9b677; font-weight: 700; }
+    .daily {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: linear-gradient(140deg, rgba(217, 189, 156, .1), rgba(217, 189, 156, .03));
+    }
+    .daily > * + * { margin-top: 8px; }
+    .daily blockquote { font-size: 1.6vw; font-size: clamp(1.09rem, 1.6vw, 1.4rem); font-weight: 500; }
+    .daily small { color: var(--muted); }
+    .footer { flex-wrap: wrap; }
+    .footer > div { display: flex; flex-wrap: wrap; align-items: center; }
+    .footer > div > * + * { margin-right: 10px; }
+
+    dialog {
+      color: #f4ead8;
+      background: #253b30;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      width: 540px;
+      max-width: calc(100% - 24px);
+      max-height: calc(100% - 24px);
+      overflow: auto;
+      padding: 22px;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, .45);
+    }
+    dialog::backdrop { background: rgba(17, 26, 22, .74); }
+    .dialog-head { margin-bottom: 14px; }
+    .settings-group { padding: 12px 0; border-top: 1px solid var(--line); }
+    .settings-group > * { display: block; }
+    .settings-group > * + * { margin-top: 10px; }
+    .settings-group > .setting-line { display: flex; }
+    select, input[type="text"] {
+      max-width: 100%;
+      background: #172a21;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 7px 10px;
+    }
+    select { width: auto; }
+    #cityPreset { width: 100%; }
+    input[type="checkbox"] { width: 22px; height: 22px; flex: none; }
+    input[type="range"] { width: 160px; }
+    input { accent-color: #d9b677; }
+    .location-form { display: flex; flex-wrap: wrap; justify-content: space-between; }
+    .location-form label { width: 48%; min-width: 0; }
+    .location-form input { display: block; width: 100%; margin-top: 4px; }
+    .location-form button { width: 100%; margin-top: 10px; padding: 8px 10px; }
+    .hint { color: var(--muted); font-size: .82rem; }
+
+    body[data-ambient="true"] .cards,
+    body[data-ambient="true"] .footer,
+    body[data-ambient="true"] #greeting { display: none; }
+    body[data-kiosk="true"] #fullscreenBtn,
+    body[data-kiosk="true"] #settingsBtn,
+    body[data-kiosk="true"] #refreshBtn { display: none; }
+    body.dim .shell { opacity: .4; }
+
+    @media (max-width: 840px) {
+      .cards { flex-wrap: wrap; }
+      .weather, .prayer { flex: none; width: calc(50% - 5px); }
+      .prayer { margin-right: 10px; }
+      .daily { flex: none; width: 100%; margin-right: 0 !important; margin-top: 10px; }
+    }
+    @media (max-width: 550px) {
+      .shell { padding: 12px; }
+      .shell > * + * { margin-top: 10px; }
+      .topbar { padding-bottom: 9px; }
+      .topbar > * + *, .tools > * + *, .location > * + * { margin-right: 6px; }
+      .brand > * + * { margin-left: 6px; }
+      .location { font-size: .75rem; }
+      .location .icon { width: 14px; }
+      .brand-mark { width: 34px; height: 34px; }
+      .brand strong { font-size: 1.05rem; }
+      .brand small { font-size: .67rem; }
+      .icon-button { width: 35px; height: 35px; }
+      .hero { min-height: 230px; padding: 16px; border-radius: 21px; }
+      h1 { font-size: 2.2rem; }
+      .dates { display: block; font-size: 1.2rem; }
+      .dates > span { display: block; }
+      #hijriDate { border: 0; padding: 0; margin: 2px 0 0; }
+      .time-row { font-size: calc(14vw * var(--clock-scale)); font-size: calc(clamp(2.55rem, 14vw, 4.6rem) * var(--clock-scale)); }
+      .card { padding: 10px; border-radius: 15px; }
+      .card-heading p { display: none; }
+      #temperature { font-size: 2.4rem; }
+      #nextName { font-size: 1.2rem; }
+      #weatherIcon { width: 30px; height: 30px; }
+      .prayer-main { display: block; }
+      .prayer-main > * + * { margin-right: 0; }
+      .count-block { display: flex; align-items: baseline; flex-wrap: wrap; margin-top: 5px; }
+      .count-block > * + * { margin-right: 6px; }
+      .location-form label { width: 100%; }
+      .location-form label + label { margin-top: 8px; }
+    }
+    @media (max-height: 610px) and (min-width: 551px) {
+      .shell { padding: 12px 20px; }
+      .shell > * + * { margin-top: 9px; }
+      .topbar { padding-bottom: 7px; }
+      .hero { min-height: 0; padding: 12px 22px; }
+      h1 { font-size: 4vw; font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.05; }
+      .dates { font-size: 1.9vw; font-size: clamp(1rem, 1.9vw, 1.5rem); margin-top: 2px; }
+      .time-row { font-size: calc(17vh * var(--clock-scale)); font-size: calc(clamp(2.8rem, min(10vw, 18vh), 6.5rem) * var(--clock-scale)); }
+      .clock-stage, #greeting { margin-top: 6px; }
+      #greeting { font-size: 1rem; }
+      .card { padding: 8px 13px; }
+      .card h2 { font-size: .9rem; }
+      #temperature { font-size: 2.3rem; }
+      #weatherIcon { width: 34px; height: 34px; }
+      .weather-main, .prayer-main { margin: 4px 0; }
+      #nextName { font-size: 1.25rem; }
+      .weather-stats { padding-top: 4px; }
+      .note { margin-top: 3px; }
+      .track { margin: 4px 0; }
+      details { margin-top: 4px; }
+      .prayer-grid { margin-top: 4px; }
+      .prayer-row { width: 31%; padding: 2px 0; font-size: .78rem; }
+      #prayerSource { display: none; }
+      .daily blockquote { font-size: 1.05rem; }
+    }
+    /*
+      شاشات عريضة مثل التلفزيون (16:9): كل المقاسات تتبع ارتفاع الشاشة،
+      فتتناسب الصفحة كصورة واحدة على 720p و 1080p و 4K دون تمرير.
+    */
+    @media (min-aspect-ratio: 3/2) and (min-width: 900px) {
+      html { font-size: 1.6vh; }
+      .shell { padding: 3vh 4vw; }
+      .shell > * + * { margin-top: 1.6vh; }
+      .topbar { padding-bottom: 1.2vh; }
+      .brand-mark { width: 4.2vh; height: 4.2vh; border-radius: 1.2vh; }
+      .brand-mark svg { width: 2.2vh; height: 2.2vh; }
+      .icon { width: 2vh; height: 2vh; }
+      .icon-button { width: 4.2vh; height: 4.2vh; border-radius: 1vh; }
+      .hero { min-height: 0; padding: 3.5vh 4vw; border-radius: 2.6vh; }
+      h1 { font-size: 7vh; line-height: 1.12; }
+      .dates { font-size: 3.4vh; margin-top: .5vh; }
+      .clock-stage { margin-top: 2vh; }
+      .time-row { font-size: calc(19vh * var(--clock-scale)); }
+      #greeting { margin-top: 1.5vh; font-size: 2.2vh; }
+      .card { padding: 2vh 1.6vw; border-radius: 2vh; }
+      .card + .card { margin-right: 1.2vw; }
+      .card h2 { font-size: 1rem; }
+      #temperature { font-size: 6vh; }
+      #weatherIcon { width: 5vh; height: 5vh; }
+      .weather-main, .prayer-main { margin: .8vh 0; }
+      #nextName { font-size: 3.2vh; }
+      #countdown { font-size: 2.4vh; }
+      .track { margin: .7vh 0; }
+      details, .prayer-grid { margin-top: .8vh; }
+      .prayer-row { width: 31%; padding: .3vh 0; font-size: .82rem; }
+      #prayerSource { display: block; }
+      .daily blockquote { font-size: 2.3vh; }
+    }
+    body.overscan .shell { padding: 5vh 5vw; }
+  </style>
+</head>
+<body>
+  <main class="shell" id="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 1.5 14.2 9.8 22.5 12 14.2 14.2 12 22.5 9.8 14.2 1.5 12 9.8 9.8Z"/></svg>
+        </span>
+        <div class="brand-text"><strong>NOOR</strong><small>Smart Display</small></div>
+      </div>
+      <div class="tools">
+        <div class="location">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z"/>
+            <circle cx="12" cy="10" r="2.2"/>
+          </svg>
+          <span id="cityLabel"></span>
+        </div>
+        <button class="button icon-button" id="fullscreenBtn" type="button" aria-label="ملء الشاشة" title="ملء الشاشة">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/></svg>
+        </button>
+        <button class="button icon-button" id="settingsBtn" type="button" aria-label="الإعدادات" title="الإعدادات">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16m-12-14v4m8 2v4m-6 2v4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="hero" aria-label="الوقت والتاريخ">
+      <h1 id="weekday">—</h1>
+      <div class="dates"><span id="gregDate">—</span><span id="hijriDate">—</span></div>
+      <div class="clock-stage" id="clockStage">
+        <div class="time-row">
+          <span id="clockMain">--:--</span><span id="clockSeconds">:--</span><span id="clockPeriod"></span>
+        </div>
+        <p id="greeting"></p>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="معلومات اليوم">
+      <article class="card weather">
+        <div class="card-heading"><h2>الطقس الآن</h2><p id="weatherCity"></p></div>
+        <div class="weather-main">
+          <div>
+            <div class="weather-value"><b id="temperature" dir="ltr">—</b><span>°م</span></div>
+            <p id="weatherDescription">بانتظار البيانات</p>
+          </div>
+          <span id="weatherIcon" aria-hidden="true"></span>
+        </div>
+        <div class="weather-stats">
+          <span>المحسوسة <bdi id="feelsLike" dir="ltr">—</bdi></span>
+          <span>الرطوبة <bdi id="humidity" dir="ltr">—</bdi></span>
+        </div>
+        <p class="note" id="weatherStatus" role="status"></p>
+      </article>
+
+      <article class="card prayer">
+        <h2>الصلاة القادمة</h2>
+        <div class="prayer-main">
+          <div><p id="nextName">—</p><p id="nextAt"></p></div>
+          <div class="count-block"><small>الوقت المتبقي</small><bdi id="countdown">--:--:--</bdi></div>
+        </div>
+        <div class="track" id="progressTrack" role="progressbar" aria-label="الوقت المنقضي بين الصلاتين" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="progressFill"></div>
+        </div>
+        <details id="tableDetails">
+          <summary>جميع المواقيت</summary>
+          <div class="prayer-grid" id="prayerGrid"></div>
+          <p class="note" id="prayerSource"></p>
+        </details>
+      </article>
+
+      <article class="card daily">
+        <h2>عبارة اليوم</h2>
+        <blockquote id="dailyText"></blockquote>
+        <small id="dhikr"></small>
+      </article>
+    </section>
+
+    <footer class="footer">
+      <div><bdi id="timezoneLabel"></bdi><span id="zoneNotice"></span></div>
+      <div>
+        <span id="dataStatus" role="status"></span>
+        <button class="button" id="refreshBtn" type="button">تحديث البيانات</button>
+      </div>
+    </footer>
+  </main>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <div class="dialog-head">
+      <h2 id="settingsTitle">إعدادات العرض</h2>
+      <button class="button icon-button" id="closeSettings" type="button" aria-label="إغلاق">×</button>
+    </div>
+    <div class="settings-group">
+      <label for="cityPreset">الموقع</label>
+      <select id="cityPreset"><option value="">اختر موقعًا أو اكتب مدينة مخصصة</option></select>
+      <form class="location-form" id="locationForm">
+        <label>المدينة <input id="cityInput" type="text" maxlength="80" required dir="auto"></label>
+        <label>الدولة أو رمزها <input id="countryInput" type="text" maxlength="80" required dir="auto"></label>
+        <button class="button" type="submit">حفظ الموقع</button>
+      </form>
+    </div>
+    <div class="settings-group">
+      <label class="setting-line">نظام الساعة
+        <select id="formatInput"><option value="24">24 ساعة</option><option value="12">12 ساعة</option></select>
+      </label>
+      <label class="setting-line">المظهر
+        <select id="themeInput">
+          <option value="gold">ذهبي دافئ</option><option value="teal">زيتوني</option><option value="violet">بني ترابي</option>
+        </select>
+      </label>
+      <label class="setting-line"><span>حجم الساعة <small id="sizeLabel"></small></span>
+        <input id="sizeInput" type="range" min="80" max="125" step="5">
+      </label>
+      <label class="setting-line">إظهار الثواني <input id="secondsInput" type="checkbox"></label>
+      <label class="setting-line">العرض المبسط <input id="ambientInput" type="checkbox"></label>
+      <label class="setting-line">وضع العرض الثابت (إخفاء الأزرار) <input id="kioskInput" type="checkbox"></label>
+      <label class="setting-line">إبقاء الشاشة نشطة <input id="wakeInput" type="checkbox"></label>
+    </div>
+    <div class="settings-group">
+      <label class="setting-line">هامش إضافي لحواف التلفزيون <input id="overscanInput" type="checkbox"></label>
+      <label class="setting-line">حماية الشاشة من الثبات (تحريك خفيف) <input id="shiftInput" type="checkbox"></label>
+      <label class="setting-line">تعتيم ليلي بعد العشاء حتى قبيل الفجر <input id="dimInput" type="checkbox"></label>
+      <p class="note" id="settingsStatus" role="status"></p>
+      <p class="hint">على الريموت: زر OK يفتح الإعدادات، والأسهم ▲▼ للتنقل، و◀▶ لتغيير الاختيار، وزر الرجوع للإغلاق.
+        على الكمبيوتر: S للإعدادات و F لملء الشاشة، أو اضغط مطولًا على الساعة.</p>
+    </div>
+  </dialog>
+
+  <script>
+    (function () {
+      "use strict";
+
+      /* ---------- أدوات مساعدة (بديلة لميزات JavaScript الحديثة) ---------- */
+      const $ = id => document.getElementById(id);
+      const pad = value => {
+        const text = String(value);
+        return text.length < 2 ? "0" + text : text;
+      };
+      const entries = object => Object.keys(object).map(key => [key, object[key]]);
+      const values = object => Object.keys(object).map(key => object[key]);
+      const fromEntries = list => {
+        const object = {};
+        list.forEach(pair => { object[pair[0]] = pair[1]; });
+        return object;
+      };
+      const last = list => list[list.length - 1];
+      const flatMap = (list, fn) => list.reduce((all, item) => all.concat(fn(item)), []);
+      const get = (object, path) => path.split(".")
+        .reduce((value, key) => value === null || value === undefined ? undefined : value[key], object);
+      const settle = promises => Promise.all(promises.map(promise => promise.then(
+        value => ({ ok: true, value }), error => ({ ok: false, error }))));
+
+      const minute = 60000;
+      const hour = 60 * minute;
+      const day = 24 * hour;
+      const riyadhZone = "Asia/Riyadh";
+      const locale = "ar-SA-u-ca-gregory-nu-latn";
+      const settingsKey = "noor.clock.settings.v3";
+      const prayerKey = "noor.clock.timings.v4";
+      const weatherKey = "noor.weather.v1";
+      const forcedKiosk = /(^|[?&])kiosk=1(&|$)/.test(location.search.slice(1));
+      const staleSignal = new Error("stale");
+      const backKeys = [27, 461, 10009];
+
+      const prayers = {
+        Fajr: "الفجر", Sunrise: "الشروق", Dhuhr: "الظهر",
+        Asr: "العصر", Maghrib: "المغرب", Isha: "العشاء"
+      };
+      const presets = {
+        "Riyadh|SA": "الرياض · السعودية", "Makkah|SA": "مكة المكرمة · السعودية",
+        "Madinah|SA": "المدينة المنورة · السعودية", "Jeddah|SA": "جدة · السعودية",
+        "Dammam|SA": "الدمام · السعودية", "Dubai|AE": "دبي · الإمارات",
+        "Doha|QA": "الدوحة · قطر", "Kuwait City|KW": "مدينة الكويت · الكويت",
+        "Cairo|EG": "القاهرة · مصر", "Istanbul|TR": "إسطنبول · تركيا",
+        "London|GB": "لندن · بريطانيا"
+      };
+      /* طريقة الحساب في AlAdhan حسب الدولة، والافتراضي رابطة العالم الإسلامي (3) */
+      const methods = {
+        SA: 4, AE: 16, QA: 10, KW: 9, BH: 8, OM: 8, EG: 5, TR: 13, GB: 15, JO: 23,
+        MA: 21, DZ: 19, TN: 18, PK: 1, IN: 1, BD: 1, US: 2, CA: 2, FR: 12, RU: 14,
+        SG: 11, MY: 17, ID: 20
+      };
+      const methodNames = {
+        1: "جامعة العلوم الإسلامية بكراتشي", 2: "الجمعية الإسلامية لأمريكا الشمالية",
+        3: "رابطة العالم الإسلامي", 4: "أم القرى", 5: "الهيئة المصرية العامة للمساحة",
+        8: "منطقة الخليج", 9: "الكويت", 10: "قطر", 11: "سنغافورة", 12: "اتحاد المنظمات الإسلامية بفرنسا",
+        13: "رئاسة الشؤون الدينية التركية", 14: "الإدارة الدينية لمسلمي روسيا",
+        15: "لجنة رؤية الهلال", 16: "دبي", 17: "ماليزيا (جاكيم)", 18: "تونس",
+        19: "الجزائر", 20: "إندونيسيا", 21: "المغرب", 23: "الأردن"
+      };
+      const countryAliases = {
+        SA: ["السعودية", "المملكة العربية السعودية", "KSA", "Saudi Arabia", "Saudi"],
+        AE: ["الإمارات", "الامارات العربية المتحدة", "UAE", "United Arab Emirates", "Emirates"],
+        GB: ["بريطانيا", "المملكة المتحدة", "UK", "Great Britain", "United Kingdom", "England"],
+        EG: ["مصر", "Egypt"], TR: ["تركيا", "Turkey", "Turkiye", "Türkiye"],
+        QA: ["قطر", "Qatar"], KW: ["الكويت", "Kuwait"], BH: ["البحرين", "Bahrain"],
+        OM: ["عمان", "سلطنة عمان", "Oman"], JO: ["الأردن", "Jordan"],
+        MA: ["المغرب", "Morocco"], DZ: ["الجزائر", "Algeria"], TN: ["تونس", "Tunisia"],
+        PK: ["باكستان", "Pakistan"], IN: ["الهند", "India"], US: ["أمريكا", "الولايات المتحدة", "USA", "United States"],
+        CA: ["كندا", "Canada"], FR: ["فرنسا", "France"], MY: ["ماليزيا", "Malaysia"], ID: ["إندونيسيا", "Indonesia"]
+      };
+      const defaults = {
+        city: "Riyadh", country: "SA", format: "24", theme: "gold", size: 100,
+        seconds: true, ambient: false, kiosk: false, wake: false,
+        overscan: false, shift: true, dim: false, table: false
+      };
+      const flags = ["seconds", "ambient", "kiosk", "wake", "overscan", "shift", "dim", "table"];
+      const themeColors = { gold: "#253f31", teal: "#37452d", violet: "#3f3729" };
+      const messages = [
+        "ابدأ يومك بأهم مهمة، واترك للبقية وقتها.",
+        "لحظة هدوء تمنحك مساحة للتفكير بوضوح.",
+        "خصّص وقتًا قصيرًا للمشي وتجديد نشاطك.",
+        "قسّم المهمة الكبيرة إلى خطوات يسهل البدء بها.",
+        "دوّن فكرة واحدة ترغب في العودة إليها.",
+        "امنح عينيك استراحة قصيرة بعيدًا عن الشاشة.",
+        "اختم يومك بتذكّر شيء سار حدث اليوم."
+      ];
+      const remembrances = [
+        "سبحان الله وبحمده، سبحان الله العظيم",
+        "لا إله إلا الله وحده لا شريك له",
+        "أستغفر الله وأتوب إليه",
+        "اللهم صلِّ وسلِّم على نبينا محمد",
+        "لا حول ولا قوة إلا بالله",
+        "الحمد لله رب العالمين",
+        "سبحان الله، والحمد لله، والله أكبر",
+        "حسبي الله لا إله إلا هو، عليه توكلت"
+      ];
+      /* أيقونات SVG بدل الرموز النصية التي قد لا يعرضها خط التلفزيون */
+      const cloudTop = '<path d="M7 14h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 5.2 4.5 4.5 0 0 0 7 14Z"/>';
+      const icons = {
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/>',
+        partly: '<path d="M8 2.5v1.5M2.5 8H4M4.1 4.1l1 1M11.9 4.1l-1 1"/><path d="M5.4 10.8A3.2 3.2 0 0 1 11 7.2"/><path d="M9 20h8a3.5 3.5 0 0 0 .5-6.96A5 5 0 0 0 8 13.2 3.4 3.4 0 0 0 9 20Z"/>',
+        cloud: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 9.2 4.5 4.5 0 0 0 7 18Z"/>',
+        fog: '<path d="M4 8h16M6 12h12M4 16h16M8 20h8"/>',
+        rain: cloudTop + '<path d="M8.5 17l-1 3M12.5 17l-1 3M16.5 17l-1 3"/>',
+        snow: '<path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/>',
+        storm: cloudTop + '<path d="M13 14l-3 4h4l-2 4"/>',
+        none: '<circle cx="12" cy="12" r="7" stroke-dasharray="3 3"/>'
+      };
+      const conditions = [
+        [[0], "صافٍ", "sun"], [[1, 2], "غائم جزئيًا", "partly"], [[3], "غائم", "cloud"],
+        [[45, 48], "ضباب", "fog"], [[51, 53, 55, 56, 57], "رذاذ", "rain"],
+        [[61, 63, 65, 66, 67, 80, 81, 82], "أمطار", "rain"],
+        [[71, 73, 75, 77, 85, 86], "ثلوج", "snow"], [[95, 96, 99], "عواصف رعدية", "storm"]
+      ];
+
+      let nonWord;
+      try { nonWord = new RegExp("[^\\p{L}\\p{N}]", "gu"); }
+      catch (error) { nonWord = /[\s.,'"`’\-_()\/·]+/g; }
+
+      const hijriSupported = (() => {
+        try {
+          return /islamic/.test(new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura").resolvedOptions().calendar);
+        } catch (error) { return false; }
+      })();
+
+      function read(key) {
+        try { return JSON.parse(localStorage.getItem(key)) || {}; }
+        catch (error) { return {}; }
+      }
+
+      function write(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+        catch (error) { return false; }
+      }
+
+      function loadSettings() {
+        const saved = read(settingsKey);
+        const loaded = Object.assign({}, defaults);
+        ["city", "country"].forEach(key => {
+          if (typeof saved[key] === "string" && saved[key].trim()) loaded[key] = saved[key].trim().slice(0, 80);
+        });
+        if (["12", "24"].indexOf(saved.format) >= 0) loaded.format = saved.format;
+        if (["gold", "teal", "violet"].indexOf(saved.theme) >= 0) loaded.theme = saved.theme;
+        if (Number.isFinite(saved.size)) loaded.size = Math.max(80, Math.min(125, saved.size));
+        flags.forEach(flag => {
+          if (typeof saved[flag] === "boolean") loaded[flag] = saved[flag];
+        });
+        return loaded;
+      }
+
+      function saveSettings() {
+        setText("settingsStatus", write(settingsKey, settings) ? "" : "تعذر حفظ الإعدادات في هذا المتصفح.");
+      }
+
+      let settings = loadSettings();
+      const prayerCache = Object.assign(Object.create(null), read(prayerKey));
+      const weatherCache = Object.assign(Object.create(null), read(weatherKey));
+      const formatters = new Map();
+      const prayerRows = new Map();
+      let zone = riyadhZone;
+      let zoneConfirmed = false;
+      let method = 4;
+      let school = 0;
+      let schedules = {};
+      let prayerRequest = null;
+      let weatherRequest = null;
+      let prayerDue = 0;
+      let weatherDue = 0;
+      let retryCount = 0;
+      let lastDay = "";
+      let prayerMessage = "";
+      let wakeLock = null;
+      let wakePending = false;
+      let dateSignature = "";
+      let prayerSignature = "";
+      let eventsSignature = "";
+      let prayerEvents = [];
+      let iconName = "";
+      let shiftTimer = null;
+      let idleTimer = null;
+
+      function setText(id, value) {
+        const node = $(id);
+        const text = String(value);
+        if (node.textContent !== text) node.textContent = text;
+      }
+
+      entries(presets).forEach(pair => $("cityPreset").add(new Option(pair[1], pair[0])));
+
+      entries(prayers).forEach(pair => {
+        const row = document.createElement("div");
+        const label = document.createElement("span");
+        const time = document.createElement("bdi");
+        row.className = "prayer-row";
+        label.textContent = pair[1];
+        time.textContent = "—";
+        row.appendChild(label);
+        row.appendChild(time);
+        $("prayerGrid").appendChild(row);
+        prayerRows.set(pair[0], { row, time });
+      });
+
+      const locationKey = () => `${settings.city.toLowerCase()}|${settings.country.toUpperCase()}`;
+      const presetKey = () => Object.keys(presets).filter(key => key.toLowerCase() === locationKey().toLowerCase())[0];
+      const normalize = value => String(value || "").normalize("NFKD").toLowerCase()
+        .replace(/[ً-ٟ]/g, "").replace(/[أإآ]/g, "ا").replace(nonWord, "");
+
+      function matchesCountry(place, country) {
+        const code = place.country_code;
+        let names = [code, place.country];
+        if (/^[A-Z]{2}$/.test(code || "") && typeof Intl.DisplayNames === "function") {
+          ["ar", "en"].forEach(language => {
+            try { names.push(new Intl.DisplayNames(language, { type: "region" }).of(code)); }
+            catch (error) { /* غير مدعوم */ }
+          });
+        }
+        names = names.concat(countryAliases[code] || []);
+        const wanted = normalize(country);
+        return names.some(name => normalize(name) === wanted);
+      }
+
+      function countryCode() {
+        const raw = settings.country.trim();
+        if (/^[a-z]{2}$/i.test(raw)) return raw.toUpperCase();
+        const codes = Object.keys(countryAliases);
+        for (let index = 0; index < codes.length; index++) {
+          if (matchesCountry({ country_code: codes[index] }, raw)) return codes[index];
+        }
+        return "";
+      }
+
+      function isRiyadh() {
+        return ["riyadh", "الرياض"].indexOf(normalize(settings.city)) >= 0 && countryCode() === "SA";
+      }
+
+      function validZone(value) {
+        if (typeof value !== "string" || !value) return false;
+        try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; }
+        catch (error) { return false; }
+      }
+
+      /* تفكيك الوقت إلى أجزاء في منطقة زمنية؛ مع بديل للمتصفحات بلا formatToParts */
+      function civilParts(date, timeZone) {
+        timeZone = timeZone || zone;
+        const key = "parts|" + timeZone;
+        if (!formatters.has(key)) {
+          formatters.set(key, new Intl.DateTimeFormat("en-US", {
+            timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+          }));
+        }
+        const formatter = formatters.get(key);
+        let raw = {};
+        if (typeof formatter.formatToParts === "function") {
+          formatter.formatToParts(date).forEach(part => {
+            if (part.type !== "literal") raw[part.type] = part.value;
+          });
+        } else {
+          const match = formatter.format(date).replace(/[^\d\/,: ]/g, "")
+            .match(/(\d+)\/(\d+)\/(\d+),?\s*(\d+):(\d+):(\d+)/);
+          if (match) raw = { month: match[1], day: match[2], year: match[3], hour: match[4], minute: match[5], second: match[6] };
+        }
+        return {
+          year: String(raw.year), month: pad(+raw.month), day: pad(+raw.day),
+          hour: pad(+raw.hour % 24), minute: pad(+raw.minute), second: pad(+raw.second)
+        };
+      }
+
+      const dateKey = parts => `${parts.year}-${parts.month}-${parts.day}`;
+      const offsetDay = (key, offset) => new Date(Date.parse(`${key}T00:00:00Z`) + offset * day)
+        .toISOString().slice(0, 10);
+      const isFriday = key => new Date(Date.parse(`${key}T00:00:00Z`)).getUTCDay() === 5;
+
+      function instantFor(key, time, timeZone) {
+        const nominal = Date.parse(`${key}T${time}:00Z`);
+        let guess = nominal;
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const local = civilParts(new Date(guess), timeZone);
+          const wall = Date.parse(`${dateKey(local)}T${local.hour}:${local.minute}:${local.second}Z`);
+          if (wall === nominal) return guess;
+          guess += nominal - wall;
+        }
+        return NaN;
+      }
+
+      function formattedDate(now, calendar, options) {
+        const language = calendar === "hijri" ? "ar-SA-u-ca-islamic-umalqura-nu-latn" : locale;
+        const key = `${zone}|${language}|${JSON.stringify(options)}`;
+        if (!formatters.has(key)) {
+          formatters.set(key, new Intl.DateTimeFormat(language, Object.assign({ timeZone: zone }, options)));
+        }
+        return formatters.get(key).format(now);
+      }
+
+      function formatPrayer(time) {
+        if (!time) return "—";
+        if (settings.format === "24") return time;
+        const parts = time.split(":");
+        return `${pad(+parts[0] % 12 || 12)}:${parts[1]} ${+parts[0] < 12 ? "ص" : "م"}`;
+      }
+
+      function count(value, one, two, few, many) {
+        if (value <= 1) return one;
+        if (value === 2) return two;
+        return value <= 10 ? `${value} ${few}` : `${value} ${many}`;
+      }
+
+      function ageText(ms) {
+        const minutes = Math.round(ms / minute);
+        if (minutes < 1) return "الآن";
+        if (minutes < 60) return "قبل " + count(minutes, "دقيقة", "دقيقتين", "دقائق", "دقيقة");
+        const hours = Math.round(minutes / 60);
+        if (hours < 48) return "قبل " + count(hours, "ساعة", "ساعتين", "ساعات", "ساعة");
+        return "قبل " + count(Math.round(hours / 24), "يوم", "يومين", "أيام", "يومًا");
+      }
+
+      function renderDates(now, today) {
+        const record = schedules[today];
+        const signature = `${today}|${zone}|${zoneConfirmed}|${record && record.fetchedAt}`;
+        if (signature === dateSignature) return;
+        dateSignature = signature;
+        setText("weekday", formattedDate(now, "gregorian", { weekday: "long" }));
+        const options = { day: "numeric", month: "long", year: "numeric" };
+        setText("gregDate", formattedDate(now, "gregorian", options));
+        const hijri = record && record.hijri;
+        const hijriText = hijri ? `${hijri.day} ${hijri.month} ${hijri.year} هـ`
+          : hijriSupported ? `${formattedDate(now, "hijri", options).replace(/\s*هـ\.?\s*$/, "")} هـ` : "";
+        setText("hijriDate", hijriText);
+        $("hijriDate").hidden = !hijriText;
+        setText("timezoneLabel", zone);
+        setText("zoneNotice", zoneConfirmed ? "" : "توقيت الرياض مؤقتًا حتى تأكيد الموقع");
+        const index = Math.floor(Date.parse(`${today}T00:00:00Z`) / day);
+        setText("dailyText", messages[(index % messages.length + messages.length) % messages.length]);
+      }
+
+      function renderClock(now, parts) {
+        const hours = +parts.hour;
+        setText("clockMain", `${settings.format === "12" ? pad(hours % 12 || 12) : parts.hour}:${parts.minute}`);
+        setText("clockSeconds", `:${parts.second}`);
+        setText("clockPeriod", hours < 12 ? "ص" : "م");
+        setText("greeting", hours < 5 ? "ليلة هادئة" : hours < 12 ? "صباح الخير"
+          : hours < 17 ? "طاب نهارك" : hours < 22 ? "مساء الخير" : "ليلة هادئة");
+        const index = Math.floor(now.getTime() / 26000);
+        setText("dhikr", remembrances[(index % remembrances.length + remembrances.length) % remembrances.length]);
+      }
+
+      function usableSchedule(key) {
+        const record = schedules[key];
+        return zoneConfirmed && record && record.timezone === zone ? record : null;
+      }
+
+      function eventsFor(today) {
+        const keys = [offsetDay(today, -1), today, offsetDay(today, 1)];
+        const signature = [zone].concat(flatMap(keys, key => {
+          const record = usableSchedule(key);
+          return [key, record && record.fetchedAt];
+        })).join("|");
+        if (signature === eventsSignature) return prayerEvents;
+        eventsSignature = signature;
+        prayerEvents = flatMap(keys, key => {
+          const record = usableSchedule(key);
+          if (!record) return [];
+          return Object.keys(prayers).filter(name => name !== "Sunrise").map(name => {
+            const time = record.timings[name];
+            return { name, key, time, at: instantFor(key, time, zone) };
+          }).filter(event => Number.isFinite(event.at));
+        }).sort((a, b) => a.at - b.at);
+        return prayerEvents;
+      }
+
+      const prayerName = event => event.name === "Dhuhr" && isFriday(event.key) ? "الجمعة" : prayers[event.name];
+
+      function renderPrayers(now, today) {
+        const current = usableSchedule(today);
+        const events = current ? eventsFor(today) : [];
+        const next = events.filter(event => event.at > now)[0];
+        const previous = last(events.filter(event => event.at <= now));
+        setText("nextName", next ? prayerName(next) : "غير متاحة");
+        setText("nextAt", next ? `${next.key === today ? "اليوم" : "غدًا"} عند ${formatPrayer(next.time)}`
+          : current ? "بانتظار مواقيت الغد" : "مواقيت اليوم غير متاحة");
+
+        const remaining = next ? Math.max(0, Math.ceil((next.at - now) / 1000)) : 0;
+        setText("countdown", next
+          ? `${pad(Math.floor(remaining / 3600))}:${pad(Math.floor(remaining / 60) % 60)}:${pad(remaining % 60)}`
+          : "--:--:--");
+        const progress = next && previous
+          ? Math.min(100, Math.max(0, 100 * (now - previous.at) / (next.at - previous.at))) : 0;
+        $("progressFill").style.width = `${progress}%`;
+        $("progressTrack").setAttribute("aria-valuenow", Math.round(progress));
+
+        const olderKey = !current ? last(Object.keys(schedules).filter(key => key < today).sort()) : null;
+        const shown = current || schedules[olderKey];
+        const signature = [today, olderKey, shown && shown.fetchedAt, next && next.at, settings.format, prayerMessage, method].join("|");
+        if (signature === prayerSignature) return;
+        prayerSignature = signature;
+        prayerRows.forEach((entry, key) => {
+          entry.time.textContent = formatPrayer(shown && shown.timings[key]);
+          entry.row.classList.toggle("next", Boolean(next && next.key === today && next.name === key));
+        });
+        setText("prayerSource", current ? `AlAdhan · ${methodNames[method] || "طريقة " + method}`
+          : olderKey ? `مواقيت محفوظة لتاريخ ${olderKey} فقط`
+          : "لا توجد مواقيت مؤكدة لهذا اليوم");
+        setText("dataStatus", prayerMessage);
+      }
+
+      /* التعتيم الليلي: من بعد العشاء بساعة حتى قبل الفجر بنصف ساعة */
+      function renderDim(now, hours, today) {
+        let night = false;
+        if (settings.dim) {
+          const events = usableSchedule(today) ? eventsFor(today) : [];
+          const previous = last(events.filter(event => event.at <= now));
+          const next = events.filter(event => event.at > now)[0];
+          night = previous && next
+            ? previous.name === "Isha" && next.name === "Fajr" && now >= previous.at + hour && now <= next.at - 30 * minute
+            : hours >= 23 || hours < 4;
+        }
+        document.body.classList.toggle("dim", night && !$("settingsDialog").open);
+      }
+
+      function validPrayer(record, key) {
+        return Boolean(record) && record.date === key && record.method === method && validZone(record.timezone)
+          && Number.isFinite(record.fetchedAt)
+          && Object.keys(prayers).every(name => /^([01]\d|2[0-3]):[0-5]\d$/.test((record.timings || {})[name]));
+      }
+
+      function validWeather(record) {
+        return Boolean(record) && ["temperature_2m", "apparent_temperature", "relative_humidity_2m", "weather_code", "observedAt"]
+          .every(key => Number.isFinite(record[key]))
+          && record.relative_humidity_2m >= 0 && record.relative_humidity_2m <= 100;
+      }
+
+      function setIcon(name) {
+        if (name === iconName) return;
+        iconName = name;
+        $("weatherIcon").innerHTML = `<svg class="icon" viewBox="0 0 24 24">${icons[name] || icons.none}</svg>`;
+      }
+
+      /* بيانات أقدم من 6 ساعات لا تُعرض كقراءة حالية */
+      function showWeather(record, message) {
+        const valid = validWeather(record);
+        const age = valid ? Math.max(0, Date.now() - record.observedAt) : 0;
+        const data = valid && age <= 6 * hour ? record : null;
+        const description = data ? conditions.filter(item => item[0].indexOf(data.weather_code) >= 0)[0] : null;
+        setText("temperature", data ? Math.round(data.temperature_2m) : "—");
+        setText("weatherDescription", description ? description[1] : data ? "الوصف غير متاح" : "لا توجد قراءة حديثة");
+        setIcon(data && data.is_day === 0 && data.weather_code <= 1 ? "moon" : description ? description[2] : "none");
+        setText("feelsLike", data ? `${Math.round(data.apparent_temperature)}°م` : "—");
+        setText("humidity", data ? `${Math.round(data.relative_humidity_2m)}%` : "—");
+        setText("weatherStatus", !valid ? message
+          : data ? `${message} · آخر قراءة ${ageText(age)}`
+          : `${message} · آخر قراءة ${ageText(age)} وهي قديمة جدًا للعرض`);
+      }
+
+      /* طلب قابل للإلغاء حتى في المتصفحات بلا AbortController */
+      function makeRequest() {
+        const controller = typeof AbortController === "function" ? new AbortController() : null;
+        const request = { controller, abort: null };
+        request.aborted = new Promise((resolve, reject) => {
+          request.abort = () => {
+            if (controller) controller.abort();
+            reject(new Error("aborted"));
+          };
+        });
+        request.aborted.catch(() => {});
+        return request;
+      }
+
+      function fetchJSON(url, params, request) {
+        const options = { cache: "no-store" };
+        if (request.controller) options.signal = request.controller.signal;
+        const query = Object.keys(params).map(key =>
+          `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`).join("&");
+        const loading = fetch(`${url}?${query}`, options).then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        });
+        return Promise.race([loading, request.aborted]);
+      }
+
+      function getPrayer(key, request) {
+        const parts = key.split("-");
+        const apiDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        const requestedMethod = method;
+        return fetchJSON(`https://api.aladhan.com/v1/timingsByCity/${apiDate}`,
+          { city: settings.city, country: settings.country, method: String(requestedMethod), school: String(school) },
+          request
+        ).then(result => {
+          const data = result.data;
+          if (result.code !== 200 || get(data, "date.gregorian.date") !== apiDate) throw new Error("Invalid prayer date");
+          const timings = fromEntries(Object.keys(prayers).map(name => {
+            const match = String((data.timings || {})[name] || "").match(/^(\d{2}:\d{2})\b/);
+            return [name, match ? match[1] : undefined];
+          }));
+          const rawHijri = get(data, "date.hijri");
+          const hijri = rawHijri && Number(rawHijri.day) >= 1 && Number(rawHijri.day) <= 30
+            && Number(rawHijri.year) > 1300 && typeof get(rawHijri, "month.ar") === "string"
+            ? { day: Number(rawHijri.day), year: Number(rawHijri.year), month: rawHijri.month.ar.slice(0, 40) } : null;
+          const record = {
+            date: key, timezone: get(data, "meta.timezone"), method: Number(get(data, "meta.method.id")),
+            timings, hijri, fetchedAt: Date.now()
+          };
+          if (!validPrayer(record, key)) throw new Error("Invalid prayer data");
+          return record;
+        });
+      }
+
+      function refreshPrayers(force) {
+        if (prayerRequest) return;
+        const request = makeRequest();
+        prayerRequest = request;
+        const timeout = setTimeout(() => request.abort(), 15000);
+        const key = locationKey();
+        const stale = () => prayerRequest !== request || key !== locationKey();
+        prayerMessage = "جارٍ تحديث المواقيت…";
+        setText("dataStatus", prayerMessage);
+        let hadFailure = false;
+        let updated = false;
+
+        function runPass(pass) {
+          if (pass >= 2) return Promise.resolve();
+          const today = dateKey(civilParts(new Date()));
+          const wanted = [today, offsetDay(today, 1), offsetDay(today, -1)].filter(date => {
+            const record = usableSchedule(date);
+            return !record || (force && pass === 0) || Date.now() - record.fetchedAt > 12 * hour;
+          });
+          if (!wanted.length) return Promise.resolve();
+          return settle(wanted.map(date => getPrayer(date, request))).then(results => {
+            if (stale()) throw staleSignal;
+            const records = results.filter(result => result.ok).map(result => result.value);
+            const selectedZone = records.length ? records[0].timezone : null;
+            if (records.length < wanted.length) hadFailure = true;
+            if (!selectedZone) return;
+            const changedZone = zone !== selectedZone || !zoneConfirmed;
+            if (zone !== selectedZone) schedules = {};
+            zone = selectedZone;
+            zoneConfirmed = true;
+            records.forEach(record => {
+              if (record.timezone === zone) schedules[record.date] = record;
+            });
+            updated = true;
+            return changedZone ? runPass(pass + 1) : undefined;
+          });
+        }
+
+        runPass(0).then(() => {
+          if (stale()) return;
+          const today = dateKey(civilParts(new Date()));
+          if (updated) {
+            schedules = fromEntries(entries(schedules).filter(pair =>
+              pair[0] >= offsetDay(today, -3) && pair[0] <= offsetDay(today, 3)));
+            prayerCache[key] = { timezone: zone, days: schedules, lastUsed: Date.now() };
+            const newest = entries(prayerCache)
+              .sort((a, b) => ((b[1] && b[1].lastUsed) || 0) - ((a[1] && a[1].lastUsed) || 0)).slice(0, 9);
+            write(prayerKey, fromEntries(newest));
+          }
+          const available = usableSchedule(today);
+          prayerMessage = hadFailure
+            ? available ? "مواقيت اليوم متاحة · تعذر تحديث بعض البيانات" : "تعذر تحديث المواقيت"
+            : available ? updated ? "تم تحديث المواقيت" : "مواقيت اليوم محفوظة" : "مواقيت اليوم غير متاحة";
+          retryCount = hadFailure ? retryCount + 1 : 0;
+        }).catch(() => {
+          if (stale()) return;
+          retryCount++;
+          prayerMessage = "تعذر تحديث المواقيت";
+        }).then(() => {
+          clearTimeout(timeout);
+          if (prayerRequest === request) {
+            prayerRequest = null;
+            prayerDue = Date.now() + (retryCount ? Math.min(30, Math.pow(2, Math.min(retryCount, 5))) * minute : 6 * hour);
+            render();
+          }
+        });
+      }
+
+      function refreshWeather() {
+        if (weatherRequest) return;
+        const request = makeRequest();
+        weatherRequest = request;
+        const timeout = setTimeout(() => request.abort(), 15000);
+        const key = locationKey();
+        const stale = () => weatherRequest !== request || key !== locationKey();
+        const cached = weatherCache[key];
+        showWeather(cached, validWeather(cached) ? "بيانات محفوظة · جارٍ التحديث" : "جارٍ تحديث الطقس…");
+
+        let located;
+        if (isRiyadh()) {
+          located = Promise.resolve({ latitude: 24.7136, longitude: 46.6753 });
+        } else {
+          const code = countryCode();
+          const params = { name: settings.city, count: 60, language: "ar" };
+          if (code) params.countryCode = code;
+          located = fetchJSON("https://geocoding-api.open-meteo.com/v1/search", params, request).then(places => {
+            const position = (places.results || []).filter(place =>
+              (code && place.country_code === code) || matchesCountry(place, settings.country))[0];
+            if (!position) throw new Error("City not found");
+            return position;
+          });
+        }
+
+        located.then(position => fetchJSON("https://api.open-meteo.com/v1/forecast", {
+          latitude: position.latitude, longitude: position.longitude, timeformat: "unixtime",
+          temperature_unit: "celsius",
+          current: "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,is_day"
+        }, request)).then(result => {
+          const observation = Object.assign({}, result.current, { observedAt: Number(get(result, "current.time")) * 1000 });
+          if (!validWeather(observation)) throw new Error("Invalid weather observation");
+          if (stale()) return;
+          weatherCache[key] = observation;
+          const newest = entries(weatherCache)
+            .sort((a, b) => ((b[1] && b[1].observedAt) || 0) - ((a[1] && a[1].observedAt) || 0)).slice(0, 20);
+          write(weatherKey, fromEntries(newest));
+          showWeather(observation, Date.now() - observation.observedAt > hour ? "بيانات الطقس غير محدثة" : "تم تحديث الطقس");
+          weatherDue = Date.now() + 15 * minute;
+        }).catch(() => {
+          if (stale()) return;
+          showWeather(cached, validWeather(cached) ? "الطقس غير محدث" : "تعذر تحديث الطقس");
+          weatherDue = Date.now() + 5 * minute;
+        }).then(() => {
+          clearTimeout(timeout);
+          if (weatherRequest === request) weatherRequest = null;
+        });
+      }
+
+      function restoreLocation() {
+        if (prayerRequest) prayerRequest.abort();
+        if (weatherRequest) weatherRequest.abort();
+        prayerRequest = null;
+        weatherRequest = null;
+        const code = countryCode();
+        method = methods[code] || 3;
+        school = code === "TR" ? 1 : 0;
+        const entry = prayerCache[locationKey()];
+        schedules = fromEntries(entries((entry && entry.days) || {}).filter(pair =>
+          /^\d{4}-\d{2}-\d{2}$/.test(pair[0]) && validPrayer(pair[1], pair[0])));
+        const cachedZone = entry && values(schedules).some(record => record.timezone === entry.timezone)
+          ? entry.timezone : null;
+        zone = cachedZone || riyadhZone;
+        zoneConfirmed = Boolean(cachedZone) || isRiyadh();
+        dateSignature = prayerSignature = eventsSignature = lastDay = "";
+        prayerDue = weatherDue = retryCount = 0;
+        prayerMessage = "بانتظار تحديث المواقيت";
+        const preset = presetKey();
+        const label = preset ? presets[preset] : isRiyadh() ? "الرياض · السعودية" : `${settings.city} · ${settings.country}`;
+        setText("cityLabel", label);
+        setText("weatherCity", label.split(" · ")[0]);
+        const cached = weatherCache[locationKey()];
+        showWeather(cached, validWeather(cached) ? "بيانات محفوظة" : "بانتظار تحديث الطقس");
+      }
+
+      function render() {
+        const now = new Date();
+        const parts = civilParts(now);
+        const today = dateKey(parts);
+        if (today !== lastDay) {
+          lastDay = today;
+          if (!prayerRequest && !usableSchedule(today)) prayerDue = 0;
+        }
+        renderClock(now, parts);
+        renderDates(now, today);
+        renderPrayers(now.getTime(), today);
+        renderDim(now.getTime(), +parts.hour, today);
+      }
+
+      function tick() {
+        try { render(); } catch (error) { /* لا نوقف الساعة بسبب خطأ عرض */ }
+        if (Date.now() >= prayerDue) refreshPrayers();
+        if (Date.now() >= weatherDue) refreshWeather();
+        setTimeout(tick, 1010 - Date.now() % 1000);
+      }
+
+      function updateShift() {
+        clearInterval(shiftTimer);
+        const shell = $("shell");
+        if (!settings.shift) {
+          shell.style.transform = "";
+          return;
+        }
+        shiftTimer = setInterval(() => {
+          const x = Math.round(Math.random() * 16 - 8);
+          const y = Math.round(Math.random() * 12 - 6);
+          shell.style.webkitTransform = shell.style.transform = `translate(${x}px, ${y}px)`;
+        }, 3 * minute);
+      }
+
+      function applySettings() {
+        const body = document.body;
+        body.setAttribute("data-theme", settings.theme);
+        body.setAttribute("data-ambient", String(settings.ambient));
+        body.setAttribute("data-kiosk", String(settings.kiosk || forcedKiosk));
+        body.classList.toggle("overscan", settings.overscan);
+        $("themeColor").setAttribute("content", themeColors[settings.theme]);
+        document.documentElement.style.setProperty("--clock-scale", settings.size / 100);
+        $("clockSeconds").hidden = !settings.seconds;
+        $("clockPeriod").hidden = settings.format !== "12";
+        $("formatInput").value = settings.format;
+        $("themeInput").value = settings.theme;
+        $("sizeInput").value = settings.size;
+        setText("sizeLabel", `${settings.size}%`);
+        flags.filter(flag => flag !== "table").forEach(flag => {
+          $(`${flag}Input`).checked = settings[flag] || (flag === "kiosk" && forcedKiosk);
+        });
+        $("kioskInput").disabled = forcedKiosk;
+        if ($("tableDetails").open !== settings.table) $("tableDetails").open = settings.table;
+        updateShift();
+        prayerSignature = "";
+      }
+
+      function openSettings() {
+        const dialog = $("settingsDialog");
+        if (dialog.open) return;
+        $("cityInput").value = settings.city;
+        $("countryInput").value = settings.country;
+        $("cityPreset").value = presetKey() || "";
+        document.body.classList.remove("dim");
+        if (typeof dialog.showModal === "function") dialog.showModal();
+        else dialog.setAttribute("open", "");
+        $("cityPreset").focus();
+      }
+
+      function closeSettings() {
+        const dialog = $("settingsDialog");
+        if (typeof dialog.close === "function") dialog.close();
+        else dialog.removeAttribute("open");
+        render();
+      }
+
+      function fullscreen() {
+        const doc = document;
+        const root = doc.documentElement;
+        const active = doc.fullscreenElement || doc.webkitFullscreenElement;
+        const action = active ? doc.exitFullscreen || doc.webkitExitFullscreen
+          : root.requestFullscreen || root.webkitRequestFullscreen;
+        const fail = () => setText("dataStatus", "ملء الشاشة غير متاح في هذا المتصفح");
+        if (!action) return fail();
+        try {
+          const result = action.call(active ? doc : root);
+          if (result && typeof result.catch === "function") result.catch(fail);
+        } catch (error) { fail(); }
+      }
+
+      function updateWakeLock() {
+        if (!settings.wake) {
+          const lock = wakeLock;
+          wakeLock = null;
+          if (lock) lock.release().catch(() => {});
+          return;
+        }
+        if (document.hidden || wakeLock || wakePending) return;
+        if (!navigator.wakeLock) {
+          setText("settingsStatus", "إبقاء الشاشة نشطة غير مدعوم في هذا المتصفح. عطّل شاشة التوقف من إعدادات التلفزيون.");
+          return;
+        }
+        wakePending = true;
+        navigator.wakeLock.request("screen").then(lock => {
+          if (!settings.wake) return lock.release();
+          wakeLock = lock;
+          lock.addEventListener("release", () => {
+            if (wakeLock === lock) wakeLock = null;
+          });
+        }).catch(() => {
+          setText("settingsStatus", "تعذر إبقاء الشاشة نشطة. تحقّق من دعم المتصفح.");
+        }).then(() => { wakePending = false; });
+      }
+
+      function refreshAll() {
+        refreshPrayers(true);
+        refreshWeather();
+      }
+
+      /* ---------- التحكم بالريموت ---------- */
+      function focusables() {
+        return Array.prototype.filter.call(
+          $("settingsDialog").querySelectorAll("button, select, input"),
+          element => !element.disabled && element.offsetParent !== null);
+      }
+
+      function moveFocus(step) {
+        const list = focusables();
+        if (!list.length) return;
+        const index = list.indexOf(document.activeElement);
+        const nextIndex = index < 0 ? 0 : Math.max(0, Math.min(list.length - 1, index + step));
+        list[nextIndex].focus();
+      }
+
+      function cycleSelect(select, step) {
+        const total = select.options.length;
+        select.selectedIndex = (select.selectedIndex + step + total) % total;
+        const event = document.createEvent("HTMLEvents");
+        event.initEvent("change", true, false);
+        select.dispatchEvent(event);
+      }
+
+      document.addEventListener("keydown", event => {
+        const code = event.keyCode;
+        const target = event.target || document.body;
+        const tag = target.tagName;
+        const typing = tag === "TEXTAREA" || (tag === "INPUT" && target.type === "text");
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+        if ($("settingsDialog").open) {
+          if (backKeys.indexOf(code) >= 0 || (code === 8 && !typing)) {
+            event.preventDefault();
+            closeSettings();
+          } else if (code === 38 || code === 40) {
+            event.preventDefault();
+            moveFocus(code === 40 ? 1 : -1);
+          } else if ((code === 37 || code === 39) && tag === "SELECT") {
+            event.preventDefault();
+            cycleSelect(target, code === 37 ? 1 : -1);
+          }
+          return;
+        }
+
+        if (event.repeat || typing) return;
+        const onControl = target !== document.body && /^(BUTTON|SUMMARY|A|INPUT|SELECT)$/.test(tag);
+        if (code === 13 && !onControl) {
+          event.preventDefault();
+          openSettings();
+        } else if (code === 83 || code === 403) {
+          event.preventDefault();
+          openSettings();
+        } else if (code === 70) {
+          fullscreen();
+        } else if (code === 404) {
+          refreshAll();
+        }
+      });
+
+      /* ---------- الأحداث ---------- */
+      $("settingsBtn").addEventListener("click", openSettings);
+      $("closeSettings").addEventListener("click", closeSettings);
+      $("settingsDialog").addEventListener("close", render);
+      $("settingsDialog").addEventListener("click", event => {
+        if (event.target === $("settingsDialog")) {
+          const box = event.target.getBoundingClientRect();
+          const inside = event.clientX >= box.left && event.clientX <= box.right
+            && event.clientY >= box.top && event.clientY <= box.bottom;
+          if (!inside) closeSettings();
+        }
+      });
+      $("fullscreenBtn").addEventListener("click", fullscreen);
+      $("refreshBtn").addEventListener("click", refreshAll);
+      $("tableDetails").addEventListener("toggle", () => {
+        if (settings.table === $("tableDetails").open) return;
+        settings.table = $("tableDetails").open;
+        saveSettings();
+      });
+
+      $("cityPreset").addEventListener("change", event => {
+        if (!event.target.value) return;
+        const parts = event.target.value.split("|");
+        $("cityInput").value = parts[0];
+        $("countryInput").value = parts[1];
+      });
+
+      $("locationForm").addEventListener("submit", event => {
+        event.preventDefault();
+        const city = $("cityInput").value.trim().replace(/\s+/g, " ");
+        const country = $("countryInput").value.trim().replace(/\s+/g, " ");
+        if (!city || !country) {
+          setText("settingsStatus", "اكتب المدينة والدولة معًا.");
+          return;
+        }
+        const oldLocation = locationKey();
+        settings.city = city;
+        settings.country = country;
+        saveSettings();
+        if (oldLocation !== locationKey()) restoreLocation();
+        render();
+        refreshAll();
+        closeSettings();
+      });
+
+      ["format", "theme", "size"].concat(flags.filter(flag => flag !== "table")).forEach(key => {
+        const handler = event => {
+          const input = event.target;
+          settings[key] = input.type === "checkbox" ? input.checked
+            : input.type === "range" ? Number(input.value) : input.value;
+          saveSettings();
+          applySettings();
+          render();
+          if (key === "wake") updateWakeLock();
+        };
+        $(key + "Input").addEventListener(key === "size" ? "input" : "change", handler);
+        if (key === "size") $(key + "Input").addEventListener("change", handler);
+      });
+
+      /* الضغط المطوّل على الساعة: يعمل باللمس والفأرة، ويمنع قائمة النظام */
+      let holdTimer;
+      const stage = $("clockStage");
+      const startHold = event => {
+        if (event.button !== undefined && event.button !== 0) return;
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(openSettings, 1000);
+      };
+      const cancelHold = () => clearTimeout(holdTimer);
+      if (window.PointerEvent) {
+        stage.addEventListener("pointerdown", startHold);
+        ["pointerup", "pointerleave", "pointercancel"].forEach(name => stage.addEventListener(name, cancelHold));
+      } else {
+        stage.addEventListener("mousedown", startHold);
+        stage.addEventListener("touchstart", startHold);
+        ["mouseup", "mouseleave", "touchend", "touchcancel", "touchmove"].forEach(name => stage.addEventListener(name, cancelHold));
+      }
+      stage.addEventListener("contextmenu", event => event.preventDefault());
+
+      /* إخفاء مؤشر الفأرة (مثل مؤشر ريموت LG) بعد 4 ثوانٍ من السكون */
+      const wakeCursor = () => {
+        document.body.classList.remove("idle");
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => document.body.classList.add("idle"), 4000);
+      };
+      ["mousemove", "mousedown", "keydown", "touchstart"].forEach(name =>
+        document.addEventListener(name, wakeCursor, true));
+
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+          render();
+          updateWakeLock();
+          if (Date.now() >= prayerDue) refreshPrayers();
+          if (Date.now() >= weatherDue) refreshWeather();
+        }
+      });
+      window.addEventListener("pageshow", render);
+      window.addEventListener("online", refreshAll);
+      window.addEventListener("offline", () => {
+        const cached = weatherCache[locationKey()];
+        showWeather(cached, validWeather(cached) ? "الاتصال منقطع" : "الاتصال منقطع");
+      });
+      window.addEventListener("storage", event => {
+        if (event.key !== settingsKey) return;
+        const oldLocation = locationKey();
+        settings = loadSettings();
+        if (oldLocation !== locationKey()) restoreLocation();
+        applySettings();
+        render();
+        updateWakeLock();
+      });
+
+      restoreLocation();
+      applySettings();
+      tick();
+      updateWakeLock();
+      wakeCursor();
+    })();
+  </script>
+</body>
+</html>
