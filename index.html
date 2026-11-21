@@ -611,7 +611,7 @@
         CA: ["كندا", "Canada"], FR: ["فرنسا", "France"], MY: ["ماليزيا", "Malaysia"], ID: ["إندونيسيا", "Indonesia"]
       };
       const defaults = {
-        city: "Riyadh", country: "SA", format: "24", theme: "gold", size: 100,
+        city: "Riyadh", country: "SA", format: "12", formatSet: false, theme: "gold", size: 100,
         seconds: true, ambient: false, kiosk: false, wake: false,
         overscan: false, shift: true, dim: false, table: false
       };
@@ -682,7 +682,11 @@
         ["city", "country"].forEach(key => {
           if (typeof saved[key] === "string" && saved[key].trim()) loaded[key] = saved[key].trim().slice(0, 80);
         });
-        if (["12", "24"].indexOf(saved.format) >= 0) loaded.format = saved.format;
+        /* نظام الساعة المحفوظ يُحترم فقط إذا اختاره المستخدم بنفسه؛ وإلا فالافتراضي 12 ساعة */
+        if (saved.formatSet === true && ["12", "24"].indexOf(saved.format) >= 0) {
+          loaded.format = saved.format;
+          loaded.formatSet = true;
+        }
         if (["gold", "teal", "violet"].indexOf(saved.theme) >= 0) loaded.theme = saved.theme;
         if (Number.isFinite(saved.size)) loaded.size = Math.max(80, Math.min(125, saved.size));
         flags.forEach(flag => {
@@ -1419,6 +1423,7 @@
           const input = event.target;
           settings[key] = input.type === "checkbox" ? input.checked
             : input.type === "range" ? Number(input.value) : input.value;
+          if (key === "format") settings.formatSet = true;
           saveSettings();
           applySettings();
           render();
